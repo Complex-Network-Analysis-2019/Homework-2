@@ -1,0 +1,42 @@
+name: Render and Pre-Release Bookdown Reports
+'on':
+  push:
+    branches:
+      - 'release/*'
+jobs:
+  build:
+    runs-on: ubuntu-18.04
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v1.0.0
+      - name: Get Branch Name
+        id: get_branch
+        run: echo ::set-output name=branch::$(echo $(echo $GITHUB_REF | cut -b 12-)".beta")
+      - name: Install Package Dependencies
+        run: |-
+          Rscript -e "install.packages('remotes', repos = 'https://demo.rstudiopm.com/all/__linux__/bionic/latest')"
+          Rscript -e "remotes::install_deps(dependencies = TRUE, repos = 'https://demo.rstudiopm.com/all/__linux__/bionic/latest')"
+      - name: Render the report
+        run: |-
+          Rscript -e "bookdown::render_book('index.Rmd')"
+      - name: Create Pre-release
+        id: create_pre_release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: ${{ steps.get_branch.outputs.branch }}
+          release_name: Release ${{ steps.get_branch.outputs.branch }}
+          draft: false
+          prerelease: true
+      - name: Upload Release Asset
+        id: upload-release-asset
+        uses: actions/upload-release-asset@v1.0.1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_pre_release.outputs.upload_url }} # This pulls from the CREATE RELEASE step above, referencing it's ID to get its outputs object, which include a `upload_url`. See this blog post for more info: https://jasonet.co/posts/new-features-of-github-actions/#passing-data-to-future-steps
+          asset_path: ./_book/Homework-1.docx
+          asset_name: Homework-1.docx
+          asset_content_type: application/msword
+    container: rocker/verse:latest
