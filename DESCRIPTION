@@ -8,4 +8,5 @@ License: CC-BY-NC-ND-4 + file LICENSE
 Imports:
     tidyverse,
     ggthemes,
-    igraph
+    igraph,
+    cowplot
