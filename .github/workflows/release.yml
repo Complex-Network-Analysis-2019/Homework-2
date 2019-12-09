@@ -1,4 +1,4 @@
-name: Render and Release Bookdown Reports
+name: Release
 'on':
   push:
     tags:

@@ -1,4 +1,4 @@
-name: Test on Reports rendering
+name: Testing
 'on':
   push:
     branches:

@@ -1,4 +1,4 @@
-name: Render and Pre-Release Bookdown Reports
+name: Pre-Release
 'on':
   push:
     branches:
