@@ -1,0 +1,136 @@
+# 加权网络
+
+*分析科学家合作网（加权网络），并展示其统计性质。*
+
+```{r setup-weighted-author-graph}
+# construct a weighted adjacency matrix using the number of co-authored papers
+author_matrix <- matrix(0, num_authors, num_authors)
+author_matrix[as.matrix(select(authors_coop, starts_with("author")))] <-
+  authors_coop$n
+author_graph_weighted_raw <- graph_from_adjacency_matrix(
+  author_matrix, "undirected", weighted = TRUE
+)
+# find the largest connected components
+author_graph_weighted <- decompose(author_graph_weighted_raw) %>%
+  enframe(name = "id", value = "graph") %>%
+  mutate(num_vertices = map_dbl(graph, vcount)) %>%
+  filter(num_vertices == max(num_vertices)) %>%
+  pluck("graph", 1)
+```
+
+图\@ref(fig:visualize-weighted-author-graph)可视化了以合著次数为权重的科学家合作网络，其中边的宽度表示合著次数，宽度越大则合著次数越多。
+
+```{r visualize-weighted-author-graph, fig.width=6, fig.height=6, fig.cap='经济物理学家合作网（以合著次数为权重）'}
+par(mar = c(0, 0, 0, 0) + 0.1)
+plot(
+  author_graph_weighted,
+  layout = layout_with_kk,
+  vertex.color = "black",
+  vertex.size = 1,
+  vertex.label = NA,
+  edge.curved = 0,
+  edge.width = (E(author_graph_weighted)$weight + 1) / 3
+)
+```
+
+在加权网络中，与未加权网络的度值相对应的是强度值。图\@ref(fig:degree-strength-distribution)给出了未加权时的度分布和加权时的强度分度。
+
+```{r degree-strength-distribution, fig.height=8, fig.width=6, fig.cap='度分布及点强度对比'}
+dist_dgr <- degree_distribution(author_graph)
+strengths <- strength(author_graph_weighted)
+dist_stren <- hist(strengths, -1:max(strengths), plot = FALSE)$density
+par(mfrow = c(2, 1))
+plot(dist_dgr, type = "h", main = "Degree distribution (Unweighted)", xlab = "k", ylab = "P(k)")
+plot(dist_stren, type = "h", main = "Strength distribution (Weighted)", xlab = "Strength", ylab = "P(Strength)")
+```
+
+图\@ref(fig:weight-distribution)给出了权重分布。
+
+```{r weight-distribution, fig.height=4, fig.width=6, fig.cap='经济物理学家合作网权重分布'}
+weights <- E(author_graph_weighted)$weight
+dist_weights <- hist(weights, -1:max(weights), plot = FALSE)$density
+plot(
+  dist_weights,
+  type = "h",
+  main = "Weights distribution",
+  xlab = "Weight",
+  ylab = "P(Weight)"
+)
+```
+
+下面计算集聚系数和边介数。首先，对于集聚系数，我们采用A. Barrat提出的方法。不同于PPT中B. J. Kim的方法，此方法不要求权重在0-1之间，图\@ref(fig:transitivity-vertices)给出了集聚系数从大到小的展示。
+
+```{r transitivity-vertices, fig.height=4, fig.width=6, fig.cap='加权网络各节点集聚系数展示'}
+trans_indices <- transitivity(author_graph_weighted, "weighted", isolates = "zero")
+plot(
+  sort(trans_indices, decreasing = TRUE),
+  type = "l",
+  main = "Clustering Coefficient",
+  xlab = "Rank of vertex",
+  ylab = "clustering coefficient"
+)
+```
+
+其次，再来计算边介数和点介数。由于在计算时会将边的权重理解为距离（即相异权），而经济物理学家网中边权重是相似性（即相似权），所以在实际计算时使用的是原权重的倒数。图\@ref(fig:edge-betweenness)可视化了加权网和未加权网的边介数差异。
+
+```{r betweenness, fig.height=4, fig.width=6, fig.cap='未加权和加权科学家合作网络的介数对比。A：边介数；B：点介数。'}
+edge_btw <- list(
+  Unweighted = author_graph,
+  Weighted = author_graph_weighted
+) %>%
+  enframe(name = "type", value = "graph") %>%
+  mutate(
+    data_btw = map(
+      graph,
+      ~ edge_betweenness(
+        .x, directed = FALSE,
+        weights = 1 / E(.x)$weight # this works for non-weighted, too
+      ) %>%
+        enframe(name = "edge_id", value = "betweenness") %>%
+        mutate(rank = min_rank(desc(betweenness)))
+    )
+  ) %>%
+  select(-graph) %>%
+  unnest(data_btw)
+vertex_btw <- list(
+  Unweighted = author_graph,
+  Weighted = author_graph_weighted
+) %>%
+  enframe(name = "type", value = "graph") %>%
+  mutate(
+    data_btw = map(
+      graph,
+      ~ betweenness(
+        .x, directed = FALSE,
+        weights = 1 / E(.x)$weight # this works for non-weighted, too
+      ) %>%
+        enframe(name = "edge_id", value = "betweenness") %>%
+        mutate(rank = min_rank(desc(betweenness)))
+    )
+  ) %>%
+  select(-graph) %>%
+  unnest(data_btw)
+edge_plot <- ggplot(vertex_btw, aes(rank, betweenness, color = type)) +
+  geom_point(size = 1) +
+  geom_line() +
+  scale_color_few() +
+  scale_x_log10() +
+  scale_y_log10() +
+  labs(x = "Rank of Edge", y = "Betweenness", color = "Network Type") +
+  theme_few()
+vertex_plot <- ggplot(edge_btw, aes(rank, betweenness, color = type)) +
+  geom_point(size = 1) +
+  geom_line() +
+  scale_color_few() +
+  scale_x_log10() +
+  scale_y_log10() +
+  labs(x = "Rank of Vertex", y = "Betweenness", color = "Network Type") +
+  theme_few()
+legend <- get_legend(edge_plot)
+plot_grid(
+  edge_plot + theme(legend.position = "none"),
+  vertex_plot + theme(legend.position = "none"),
+  labels = "AUTO", ncol = 1
+) %>%
+  plot_grid(legend, nrow = 1, rel_widths = c(2, .6))
+```
