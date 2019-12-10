@@ -79,5 +79,6 @@ ggplot(sir_result, aes(timestep, N, color = variable)) +
   scale_color_few() +
   labs(x = "Time", y = "Count", color = "") +
   facet_wrap(~ type, labeller = label_parsed) +
-  theme_few()
+  theme_few() +
+  theme(legend.position = "bottom")
 ```
