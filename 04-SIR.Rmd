@@ -43,7 +43,7 @@ sir_custom <- function(graph, beta, gamma, s0 = 1, no.timesteps = 100) {
 
 我们设定初始感染人数为1，模拟100次的15个时间点的网络疾病传播过程，图\@ref(fig:visualize-karate-sir)给出了分别在$\lambda=\beta/\gamma$等于1、小于1和大于1的情况下，平均易感人数（NS）、感染人数（NI）和恢复人数（NR）随着时间步骤的变化。可以看出来只有在$\lambda>1$的情况下，累计被感染人数才会增加，其他情况下，疾病不具有明显的传染性。
 
-```{r visualize-karate-sir}
+```{r visualize-karate-sir, fig.width=6, fig.height=4, fig.cap='SIR模型模拟结果'}
 sir_config <- tribble(
   ~ beta, ~ gamma, ~ type,
   0.5, 0.5, "=1",
