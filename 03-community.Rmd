@@ -1,0 +1,83 @@
+# 社团结构划分
+
+*生成GN Benchmark网络；用恒猴网络来尝试对有向、加权、无向无权网络模型下进行社团结构划分。*
+
+```{r gn-benchmark}
+mean_k <- 16
+n_vertices <- 128
+kin <- 12
+kout <- mean_k - kin
+graph_config <- tibble(
+  vertex_id = 1:n_vertices,
+  com_id = rep(1:4, each = n_vertices / 4),
+  deg_all = rbinom(n_vertices, 128, 16 / 128),
+  deg_in = round(deg_all * kin / mean_k),
+  deg_out = deg_all - deg_in
+)
+graph_edges <- expand_grid(
+  tibble(V1 = 1:n_vertices, C1 = rep(1:4, each = n_vertices / 4)),
+  tibble(V2 = 1:n_vertices, C2 = rep(1:4, each = n_vertices / 4))
+) %>% 
+  filter(V1 < V2)
+
+
+deg_vertices <- rbinom(n_vertices, 128, 16 / 128)
+deg_in <- round(deg_vertices * kin / mean_k)
+deg_out <- deg_vertices - deg_in
+
+p_connected <- mean_k / n_vertices
+set.seed(20191210)
+graph_config <- tibble(
+  kin = 10:15,
+  kout = mean_k - kin,
+  pin = kin / kout * p_connected,
+  pout = kout / kin * p_connected
+) %>% 
+  mutate(
+    graph = map(
+      pin, pout,
+      ~ expand_grid(
+        tibble(V1 = 1:n_vertices, C1 = rep(1:4, each = n_vertices / 4)),
+        tibble(V2 = 1:n_vertices, C2 = rep(1:4, each = n_vertices / 4))
+      ) %>% 
+        filter(V1 < V2) %>% 
+        mutate(
+          rnd = runif(nrow(.)),
+          is_connected = if_else(
+            C1 == C2,
+            rnd < .x,
+            rnd < .y
+          )
+        ) %>% 
+        filter(is_connected) %>% 
+        select(V1, V2) %>% 
+        as.matrix() %>% 
+        graph_from_edgelist(directed = FALSE)
+    )
+  )
+```
+
+图\@ref(fig:visualize-rhesus)是恒猴网络的可视化结果。
+
+```{r visualize-rhesus, fig.width=6, fig.height=4, fig.cap='恒猴网络（有向加权）可视化'}
+data_rhesus <- read_tsv(
+  "datasets/恒猴数据.txt", 
+  col_names = c("V1", "V2", "weight")
+)
+graph_rhesus <- graph_from_data_frame(data_rhesus)
+par(mar = c(0, 0, 0, 0) + 0.1)
+plot(
+  graph_rhesus,
+  layout = layout_with_kk,
+  vertex.color = "black",
+  vertex.size = 6,
+  vertex.label.cex = 0.6,
+  vertex.label.color = "white",
+  edge.curved = 0,
+  edge.arrow.size = 0.5,
+  edge.arrow.width = 0.5,
+  edge.label = E(graph_rhesus)$weight,
+  edge.label.cex = 0.6,
+  edge.label.color = "black"
+)
+```
