@@ -3,6 +3,7 @@
 *生成GN Benchmark网络；用恒猴网络来尝试对有向、加权、无向无权网络模型下进行社团结构划分。*
 
 ```{r gn-benchmark}
+# failure attempts of GN Benchmark
 mean_k <- 16
 n_vertices <- 128
 kin <- 12
@@ -19,8 +20,6 @@ graph_edges <- expand_grid(
   tibble(V2 = 1:n_vertices, C2 = rep(1:4, each = n_vertices / 4))
 ) %>%
   filter(V1 < V2)
-
-
 deg_vertices <- rbinom(n_vertices, 128, 16 / 128)
 deg_in <- round(deg_vertices * kin / mean_k)
 deg_out <- deg_vertices - deg_in
