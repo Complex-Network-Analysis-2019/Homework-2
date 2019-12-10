@@ -1,0 +1,12 @@
+Package: homework2
+Title: Only kids do homework
+Version: 0.0.1
+Authors@R: person("Liang", "Zhang", email = "psychelzh@outlook.com",
+                  role = c("aut", "cre")))
+Description: We are kids who are doing tedious homework. Hahaha~
+License: CC-BY-NC-ND-4 + file LICENSE
+Imports:
+    tidyverse,
+    ggthemes,
+    igraph,
+    cowplot

@@ -1,0 +1,84 @@
+# 节点传播影响力
+
+*实现网络上的SIR模型仿真，来计算网络中节点的传播影响力。*
+
+```{r define-sir}
+sir_custom <- function(graph, beta, gamma, s0 = 1, no.timesteps = 100) {
+  # random sample one node as the initial infected
+  infected_nodes <- sample(V(graph), s0)
+  # set all nodes as unrecovered
+  V(graph)$recovered <- FALSE
+  # construct a list to store all the result
+  result <- tibble(timestep = 0, NI = s0, NS = vcount(graph) - s0, NR = 0)
+  for (timestep in 1:no.timesteps) {
+    # infection stage
+    for (node in infected_nodes) {
+      for (neighbor in ego(graph, nodes = node, mindist = 1)[[1]]) {
+        # note the node should not be recovered
+        if (runif(1) < beta && !vertex_attr(graph, "recovered", neighbor))
+          infected_nodes <- base::union(infected_nodes, neighbor)
+      }
+    }
+    # removal stage
+    for (node in infected_nodes) {
+      if (runif(1) < gamma) {
+        # set the node as recovered
+        vertex_attr(graph, "recovered", node) <- TRUE
+        infected_nodes <- base::setdiff(infected_nodes, node)
+      }
+    }
+    result <- bind_rows(
+      result,
+      tibble(
+        timestep,
+        NI = length(infected_nodes),
+        NR = sum(vertex_attr(graph, "recovered")),
+        NS = vcount(graph) - NI - NR
+      )
+    )
+  }
+  return(result)
+}
+```
+
+我们设定初始感染人数为1，模拟100次的15个时间点的网络疾病传播过程，图\@ref(fig:visualize-karate-sir)给出了分别在$\lambda=\beta/\gamma$等于1、小于1和大于1的情况下，平均易感人数（NS）、感染人数（NI）和恢复人数（NR）随着时间步骤的变化。可以看出来只有在$\lambda>1$的情况下，累计被感染人数才会增加，其他情况下，疾病不具有明显的传染性。
+
+```{r visualize-karate-sir, fig.width=6, fig.height=4, fig.cap='SIR模型模拟结果'}
+sir_config <- tribble(
+  ~ beta, ~ gamma, ~ type,
+  0.5, 0.5, "=1",
+  0.5, 0.8, "<1",
+  0.5, 0.3, ">1"
+) %>%
+  slice(rep(1:nrow(.), 100)) %>%
+  mutate(
+    type = factor(
+      type,
+      levels = c("=1", "<1", ">1"),
+      labels = c(
+        bquote(paste(lambda, "=1", sep = "")),
+        bquote(paste(lambda, "<1", sep = "")),
+        bquote(paste(lambda, ">1", sep = ""))
+      )
+    )
+  )
+set.seed(20191210)
+sir_result <- sir_config %>%
+  mutate(
+    result = map2(
+      beta, gamma,
+      ~ sir_custom(karate_graph, .x, .y, no.timesteps = 15)
+    )
+  ) %>%
+  unnest(result) %>%
+  pivot_longer(starts_with("N"), names_to = "variable", values_to = "N")
+ggplot(sir_result, aes(timestep, N, color = variable)) +
+  stat_summary(geom = "line") +
+  stat_summary(geom = "errorbar", width = 0) +
+  stat_summary(geom = "point") +
+  scale_color_few() +
+  labs(x = "Time", y = "Count", color = "") +
+  facet_wrap(~ type, labeller = label_parsed) +
+  theme_few() +
+  theme(legend.position = "bottom")
+```

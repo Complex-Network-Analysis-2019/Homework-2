@@ -1,0 +1,86 @@
+# 度度匹配性
+
+*分析空手道俱乐部网络和经济物理学家网络的度度匹配性。*
+
+## 空手道俱乐部网络
+
+```{r karate}
+karate_edge_list <- read_tsv("datasets/空手道俱乐部.txt", col_names = FALSE) %>%
+  as.matrix()
+karate_graph <- graph_from_edgelist(karate_edge_list, directed = FALSE)
+# calculate assortativity using Pearson correlation coefficient
+assortativity_pearson <- get.edgelist(karate_graph) %>%
+  as_tibble(.name_repair = ~ c("V1", "V2")) %>%
+  mutate(
+    dgr1 = degree(karate_graph, V1),
+    dgr2 = degree(karate_graph, V2)
+  ) %>%
+  summarise(r = cor(dgr1, dgr2)) %>%
+  pull(r)
+# calculate assortativity using Newman's method
+assortativity_newman <- assortativity_degree(karate_graph)
+```
+
+我们首先采用老师在课上提出的简单方法，即取出所有边两侧顶点的度值，然后计算皮尔逊相关值，得到的同配性（或度相关）系数为`r round(assortativity_pearson, 3)`。
+
+而采用基于Newman的计算公式的来自`igraph`包的`assortativity_degree`函数算出来的度相关系数则为`r round(assortativity_newman, 3)`。
+
+可以看到这两个值之间差异不大，且都为负值，说明空手道网络是异配的，即度值较大的节点更多与度值较小的节点连接。
+
+## 经济物理学家网络
+
+```{r author}
+papers_authors <- read_tsv(
+  "datasets/经济物理学家合作网络/paperID_authorID.txt",
+  col_names = c("paper_id", "author_id")
+) %>%
+  # index of 0 is not supported in R
+  mutate_all(~ . + 1)
+num_authors <- n_distinct(papers_authors$author_id)
+author_matrix <- matrix(0, num_authors, num_authors)
+# get the number of cooperation papers for each pair of authors
+papers <- unique(papers_authors$paper_id)
+authors_coop <- tibble()
+for (paper in papers) {
+  paper_authors <- filter(papers_authors, paper_id == paper)
+  if (nrow(paper_authors) <= 1)
+    next
+  paper_coop <- expand_grid(
+    author1 = paper_authors$author_id,
+    author2 = paper_authors$author_id
+  ) %>%
+    filter(author1 != author2) %>%
+    add_column(n = 1)
+  authors_coop <- bind_rows(authors_coop, paper_coop)
+}
+authors_coop <- authors_coop %>%
+  group_by(author1, author2) %>%
+  summarise(n = sum(n)) %>%
+  ungroup()
+# construct a non-weighted adjacency matrix
+author_matrix[as.matrix(select(authors_coop, starts_with("author")))] <- 1
+author_graph_raw <- graph_from_adjacency_matrix(author_matrix, "undirected")
+# find the largest connected components
+author_graph <- decompose(author_graph_raw) %>%
+  enframe(name = "id", value = "graph") %>%
+  mutate(num_vertices = map_dbl(graph, vcount)) %>%
+  filter(num_vertices == max(num_vertices)) %>%
+  pluck("graph", 1)
+# calculate assortativity using Pearson correlation coefficient
+assortativity_pearson <- get.edgelist(author_graph) %>%
+  as_tibble(.name_repair = ~ c("V1", "V2")) %>%
+  mutate(
+    dgr1 = degree(author_graph, V1),
+    dgr2 = degree(author_graph, V2)
+  ) %>%
+  summarise(r = cor(dgr1, dgr2)) %>%
+  pull(r)
+# calculate assortativity using Newman's method
+assortativity_newman <- assortativity_degree(author_graph)
+```
+
+和空手道网络相同，我们首先采用老师在课上提出的计算皮尔逊相关方法，得到的度相关系数为`r round(assortativity_pearson, 3)`。
+
+而采用基于Newman的计算公式的来自`igraph`包的`assortativity_degree`函数算出来的度相关系数则为`r round(assortativity_newman, 3)`。
+
+可以看出来对于经济物理学家网络似乎这两个值的差异相对较大，不过度相关系数的绝对值都比较小，说明经济物理学家网络的度匹配性应该是中立的。
