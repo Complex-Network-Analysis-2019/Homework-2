@@ -58,7 +58,7 @@ graph_config <- tibble(
 
 图\@ref(fig:cluster-comparison)画出了四种条件（有向加权、有向无权、无向加权、无向无权）下的社团结构划分结果。可见权重对于结果的影响大于是否有向的影响。
 
-```{r cluster-comparison}
+```{r cluster-comparison, fig.width=6, fig.height=4, fig.cap='社团结构划分对比'}
 # directed and weighted
 data_rhesus <- read_tsv(
   "datasets/恒猴数据.txt",
