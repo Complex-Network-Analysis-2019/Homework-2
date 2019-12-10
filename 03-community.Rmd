@@ -17,7 +17,7 @@ graph_config <- tibble(
 graph_edges <- expand_grid(
   tibble(V1 = 1:n_vertices, C1 = rep(1:4, each = n_vertices / 4)),
   tibble(V2 = 1:n_vertices, C2 = rep(1:4, each = n_vertices / 4))
-) %>% 
+) %>%
   filter(V1 < V2)
 
 
@@ -32,15 +32,15 @@ graph_config <- tibble(
   kout = mean_k - kin,
   pin = kin / kout * p_connected,
   pout = kout / kin * p_connected
-) %>% 
+) %>%
   mutate(
     graph = map(
       pin, pout,
       ~ expand_grid(
         tibble(V1 = 1:n_vertices, C1 = rep(1:4, each = n_vertices / 4)),
         tibble(V2 = 1:n_vertices, C2 = rep(1:4, each = n_vertices / 4))
-      ) %>% 
-        filter(V1 < V2) %>% 
+      ) %>%
+        filter(V1 < V2) %>%
         mutate(
           rnd = runif(nrow(.)),
           is_connected = if_else(
@@ -48,36 +48,80 @@ graph_config <- tibble(
             rnd < .x,
             rnd < .y
           )
-        ) %>% 
-        filter(is_connected) %>% 
-        select(V1, V2) %>% 
-        as.matrix() %>% 
+        ) %>%
+        filter(is_connected) %>%
+        select(V1, V2) %>%
+        as.matrix() %>%
         graph_from_edgelist(directed = FALSE)
     )
   )
 ```
 
-图\@ref(fig:visualize-rhesus)是恒猴网络的可视化结果。
+图\@ref(fig:cluster-comparison)画出了四种条件（有向加权、有向无权、无向加权、无向无权）下的社团结构划分结果。可见权重对于结果的影响大于是否有向的影响。
 
-```{r visualize-rhesus, fig.width=6, fig.height=4, fig.cap='恒猴网络（有向加权）可视化'}
+```{r cluster-comparison}
+# directed and weighted
 data_rhesus <- read_tsv(
-  "datasets/恒猴数据.txt", 
+  "datasets/恒猴数据.txt",
   col_names = c("V1", "V2", "weight")
 )
-graph_rhesus <- graph_from_data_frame(data_rhesus)
-par(mar = c(0, 0, 0, 0) + 0.1)
+par(mar = c(0, 0, 2, 0) + 0.1, mfrow = c(2, 2))
+graph_rhesus_dir_wei <- graph_from_data_frame(data_rhesus)
+com_dir_wei <- cluster_walktrap(graph_rhesus_dir_wei)
 plot(
-  graph_rhesus,
-  layout = layout_with_kk,
-  vertex.color = "black",
-  vertex.size = 6,
+  com_dir_wei,
+  graph_rhesus_dir_wei,
+  vertex.size = 8,
   vertex.label.cex = 0.6,
   vertex.label.color = "white",
   edge.curved = 0,
   edge.arrow.size = 0.5,
   edge.arrow.width = 0.5,
-  edge.label = E(graph_rhesus)$weight,
+  edge.label = E(graph_rhesus_dir_wei)$weight,
   edge.label.cex = 0.6,
-  edge.label.color = "black"
+  edge.label.color = "black",
+  # mark.groups = NULL,
+  main = "Directed and Weighted"
+)
+graph_rhesus_dir_unw <- graph_from_data_frame(data_rhesus[, 1:2])
+com_dir_unw <- cluster_walktrap(graph_rhesus_dir_unw)
+plot(
+  com_dir_unw,
+  graph_rhesus_dir_unw,
+  vertex.size = 8,
+  vertex.label.cex = 0.6,
+  vertex.label.color = "white",
+  edge.curved = 0,
+  edge.arrow.size = 0.5,
+  edge.arrow.width = 0.5,
+  # mark.groups = NULL,
+  main = "Directed but Unweighted"
+)
+graph_rhesus_und_wei <- graph_from_data_frame(data_rhesus, directed = FALSE)
+com_und_wei <- cluster_walktrap(graph_rhesus_und_wei)
+plot(
+  com_und_wei,
+  graph_rhesus_und_wei,
+  vertex.size = 8,
+  vertex.label.cex = 0.6,
+  vertex.label.color = "white",
+  edge.curved = 0,
+  edge.label = E(graph_rhesus_und_wei)$weight,
+  edge.label.cex = 0.6,
+  edge.label.color = "black",
+  # mark.groups = NULL,
+  main = "Undirected but Weighted"
+)
+graph_rhesus_und_unw <- graph_from_data_frame(data_rhesus[, 1:2], directed = FALSE)
+com_und_unw <- cluster_walktrap(graph_rhesus_und_unw)
+plot(
+  com_und_unw,
+  graph_rhesus_und_unw,
+  vertex.size = 8,
+  vertex.label.cex = 0.6,
+  vertex.label.color = "white",
+  edge.curved = 0,
+  # mark.groups = NULL,
+  main = "Undirected and Unweighted"
 )
 ```
